@@ -26,6 +26,7 @@ module.exports = function(app, io){
                     let notiData = {};
                     notiData.count = rows.length;
                     notiData.postType = data.postType;
+                    notiData.userId = data.userToId;
                     io.to(rows[0].socketId).emit('got_notification', notiData);
                 }
                 else
