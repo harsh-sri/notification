@@ -8,6 +8,7 @@ module.exports = function(app, io){
         var socketInfo = {};
         socketInfo.socketId = socket.id;
         socketInfo.userId = socket.handshake.query.userId;
+        socketInfo.userType = socket.handshake.query.userType;
         updateUserSocketId(socketInfo);
 
     
@@ -15,7 +16,18 @@ module.exports = function(app, io){
     socket.on('trigger_notification', function(data, callback){
       if(typeof data.userToId !== 'undefined' && data.userToId !==""){
         pool.getConnection(function(err,connection){
-            let qry = "Select users.socketId FROM users where users.id="+data.userToId;
+            var qry = '';
+            if(data.userType == 1){
+                qry = "Select users.socketId FROM users where users.id="+data.userToId;
+            }
+            if(data.userType == 2){
+                qry = "Select parents.socketId FROM parents where parents.id="+data.userToId;
+            }
+            if(data.userType == 3){
+                qry = "Select teachers.socketId FROM teachers where teachers.id="+data.userToId;
+            }
+
+            
             connection.query(qry, function(err, rows){
                 if(err){
                     callback(err);
@@ -27,6 +39,7 @@ module.exports = function(app, io){
                     notiData.count = rows.length;
                     notiData.postType = data.postType;
                     notiData.userId = data.userToId;
+                    notiData.userType = data.userType;
                     io.to(rows[0].socketId).emit('got_notification', notiData);
                 }
                 else
@@ -41,11 +54,11 @@ module.exports = function(app, io){
     // handle disconnect event
     socket.on('disconnect', function(){
       // user went offline
-      if(typeof socketId !== 'undefined'){
-        update_connected_user(socketId, origin, function(res){
-          io.to(res).emit('disconnect_user');
-        });
-      }
+    //   if(typeof socketId !== 'undefined'){
+    //     update_connected_user(socketId, origin, function(res){
+    //       io.to(res).emit('disconnect_user');
+    //     });
+    //   }
     });
 
   }); // io closed
@@ -54,7 +67,17 @@ module.exports = function(app, io){
        console.log(data);
         if(typeof data.socketId !== 'undefined' && typeof data.userId !== 'undefined'){
             pool.getConnection(function(err,connection){
-                connection.query("UPDATE users set socketId='"+data.socketId+"', isOnline=1 WHERE users.`id`="+data.userId, function(err){
+                var qry = '';
+                if(data.userType==1){
+                    qry = "UPDATE users set socketId='"+data.socketId+"', isOnline=1 WHERE users.`id`="+data.userId;
+                }
+                if(data.userType==2){
+                    qry = "UPDATE parents set socketId='"+data.socketId+"', isOnline=1 WHERE parents.`id`="+data.userId;
+                }
+                if(data.userType==3){
+                    qry = "UPDATE teachers set socketId='"+data.socketId+"', isOnline=1 WHERE teachers.`id`="+data.userId;
+                }
+                connection.query(qry, function(err){
                     if(err){
                         console.log(err);
                         err_log(err);
@@ -69,23 +92,6 @@ module.exports = function(app, io){
         return false;
         
     };
-
-    var updateSeenStatus = function(data){
-        if(typeof data.userToId !== 'undefined'){
-            pool.getConnection(function(err,connection){
-                connection.query("UPDATE messages_reply set status=1 WHERE messages_reply.`user_id_to`="+data.userToId, function(err){
-                    if(err){
-                        err_log(err);
-                        console.log(err);
-                    }
-                    connection.release();
-                });
-            });
-        }
-    };
-
-    
-
 
 };
 
